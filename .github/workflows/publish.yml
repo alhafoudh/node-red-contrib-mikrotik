@@ -1,0 +1,69 @@
+name: Publish
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '14.x'
+
+    - name: npm install & set Version
+      run: |
+        npm ci
+        npm config set git-tag-version false
+        npm version ${{ github.event.release.tag_name }}
+
+    - name: build & pack
+      run:  |
+        npm run build --if-present
+        npm pack
+
+    - uses: JS-DevTools/npm-publish@v1
+      if: "!github.event.release.prerelease"
+      with:
+          token: ${{ secrets.NPM_TOKEN }}
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: '${{ github.event.release.upload_url }}'
+        asset_path: ./${{ github.event.repository.name }}-${{ github.event.release.tag_name }}.tgz
+        asset_name: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}.tgz
+        asset_content_type: application/zip
+
+
+    - name: Update package.json for NameWith2
+      uses: jossef/action-set-json-field@v1
+      with:
+        file: package.json
+        field: name
+        value: ${{ github.event.repository.name }}2
+  
+    - name: pack
+      run:  |
+        cat package.json
+        npm pack
+
+    - name: Update package.json for NameWith3
+      uses: jossef/action-set-json-field@v1
+      with:
+        file: package.json
+        field: name
+        value: ${{ github.event.repository.name }}3
+  
+    - name: pack
+      run:  |
+        npm pack        
